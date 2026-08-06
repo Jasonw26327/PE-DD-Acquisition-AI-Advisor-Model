@@ -51,7 +51,7 @@ python src/testbed.py --stage teacher
 | Real Transactions | 20 | Public deals |
 | **Total** | **927** | **907 synthetic, 20 real** |
 
-⚠️ **No real company data used in training**
+ **No real company data used in training**
 
 ---
 
@@ -140,38 +140,9 @@ python src/testbed.py --stage adversarial
 ├── results/                     # Experiment outputs
 └── tests/                       # Pytest validation suite
 ```
-
 ---
 
-## Testing
-
-```bash
-pytest tests/ -v
-```
-
-19 tests covering:
-- Rule determinism
-- Split leakage prevention
-- Label agreement
-- Reason code completeness
-- Contrast-pair construction
-- Class balance
-- Holdout discipline
-
----
-
-## Contributing
-
-Areas welcome:
-- Replication on other backbones (Qwen, Gemma, Llama)
-- Additional adversarial prompts  
-- Feature corrections
-- New evaluation metrics
-- Documentation improvements
-
----
-
-## 7. Tests
+## Tests
 
 ```bash
 pip install pytest && pytest tests/ -v
@@ -179,7 +150,7 @@ pip install pytest && pytest tests/ -v
 
 19 checks covering rule determinism, split leakage, agreement between stored labels and the rule, reason-code completeness, contrast-pair construction, class balance, and holdout discipline. One check asserts that only verified transactions may name a buyer, so a generated record cannot be mistaken for a real deal. CI additionally rebuilds the corpus from its seed and asserts the hash is unchanged.
 
-## 8. Status
+## Status
 
 The harness and the 927-record corpus are separate components at present. `src/testbed.py` trains on its own inline rule of 90 cases, and the results in section 2 come from that rule.
 
@@ -191,7 +162,6 @@ Issues and pull requests are welcome, particularly replication on a second backb
 
 ---
 ## Contact
-
 **Jason Wong**  
 Email: work.jasonwong@gmail.com   
 Github: github.com/JASONW26327  

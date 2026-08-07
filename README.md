@@ -1,10 +1,59 @@
 # PE-DD-Acquisition-AI-Advisor-Model
-This finetuned AI model sits at the intersection of private equity and model security. It is specialized in 1. Data Rights Assessment - Evaluates if training data rights are clear for valuation 2. Acquisition Due Diligence - Simulates PE/Strategic AI diligence scenarios  3. Model Security Analysis - Measures adversarial extraction vulnerability. If a decision rule is encoded in an adapter, how much of it can be recovered from the model's outputs alone, including its refusal to answer when rights are unclear?
+This finetuned AI model sits at the intersection of private equity and model security. It is specialized in: 
+1. Data Rights Assessment - Evaluates if training data rights are clear for valuation
+2. Acquisition Due Diligence - Simulates PE/Strategic AI diligence scenarios
+4. Model Security Analysis - Measures adversarial extraction vulnerability. If a decision rule is encoded in an adapter, how much of it can be recovered from the model's outputs alone, including its refusal to answer when rights are unclear?
+
+This mirrors how human PE teams evaluate whether an AI startup's data assets can actually be transferred and integrated in an acquisition, making it a practical tool for simulating real acquisition decision-making. The model outputs provide structured due diligence recommendations: AIBUYER (strong strategic rationale), SPONSOR (needs PE sponsorship), RENEG (rights issues), or ABSTAIN (insufficient evidence for valuation.
+
+AIBUYER
+When this is generated: The acquisition target shows clear evidence of being an attractive strategic acquisition for a major AI company (not just PE).
+
+Indicators:
+Buyer explicitly states acquisition is for "AI capabilities/data infrastructure" (vs "roll-up" or "talent")
+Target has demonstrable data assets that align with buyer's product roadmap
+Strategic fit language appears in filing: "expands [buyer] AI/ML capabilities" or "strengthens data moat"
+No mention of PE sponsorship needed
+Real example: When Microsoft announced acquiring a healthcare AI company specifically for its medical imaging dataset to improve Bing's health search capabilities.
+
+SPONSOR
+When this is generated: The deal needs private equity involvement to succeed, typically because:
+
+Data transfer rights are unclear or require regulatory approval
+Integration costs exceed what strategic buyer alone would pay
+Multiple parties need to coordinate the data licensing
+
+Indicators:
+Mention of "regulatory approval required" or "data transfer negotiations"
+Deals described as "strategic partnership" rather than pure acquisition
+Rights analysis missing key contract details
+Real example: A fintech startup being shopped to multiple potential acquirers where data licensing rights need restructuring before any single buyer can extract value.
+
+RENEG
+When this is generated: Evidence suggests data rights issues that would prevent clean transfer.
+
+Indicators:
+Explicit mention of "customer consent" problems
+References to "restricted data sharing" or "regulatory limitations"
+Rights_status = HIGH in the structured input
+Multiple regulatory regimes involved with conflicting requirements
+Real example: An ad-tech acquisition where the target's user data cannot be fully transferred due to GDPR restrictions, requiring renegotiation of customer agreements.
+
+ABSTAIN
+When this is generated: Insufficient source evidence exists to make any valuation recommendation.
+
+Indicators:
+No verifiable source bundle provided (company is private, no public announcements)
+Rights_status cannot be determined from available information
+Missing key fields like buyer rationale or sector
+Data presented is clearly synthetic or unverifiable
+Real example: A startup acquisition rumored in media but not yet publicly disclosed in any filings, SEC documents, or company announcements.
+
+Each output requires a specific reason code that traces back to source evidence, making the model's diligence process auditable and transparent.
 
 ## Technical Specifications
 
 ### Model Architecture
-- Base: DistilGPT-2
 - Adaptation: LoRA (Low-Rank Adaptation)
 - Rank: 64
 - Learning Rate: 3e-4

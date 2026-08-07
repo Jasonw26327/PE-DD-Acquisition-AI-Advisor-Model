@@ -6,7 +6,7 @@ This finetuned AI model sits at the intersection of private equity and model sec
 
 This mirrors how human PE teams evaluate whether an AI startup's data assets can actually be transferred and integrated in an acquisition, making it a practical tool for simulating real acquisition decision-making. The model outputs provide structured due diligence recommendations: AIBUYER (strong strategic rationale), SPONSOR (needs PE sponsorship), RENEG (rights issues), or ABSTAIN (insufficient evidence for valuation.
 
-AIBUYER
+# *A. AIBUYER*
 When this is generated: The acquisition target shows clear evidence of being an attractive strategic acquisition for a major AI company (not just PE).
 
 Indicators:
@@ -16,7 +16,7 @@ Strategic fit language appears in filing: "expands [buyer] AI/ML capabilities" o
 No mention of PE sponsorship needed
 Real example: When Microsoft announced acquiring a healthcare AI company specifically for its medical imaging dataset to improve Bing's health search capabilities.
 
-SPONSOR
+# *B. SPONSOR*
 When this is generated: The deal needs private equity involvement to succeed, typically because:
 
 Data transfer rights are unclear or require regulatory approval
@@ -29,7 +29,7 @@ Deals described as "strategic partnership" rather than pure acquisition
 Rights analysis missing key contract details
 Real example: A fintech startup being shopped to multiple potential acquirers where data licensing rights need restructuring before any single buyer can extract value.
 
-RENEG
+# *C. RENEG*
 When this is generated: Evidence suggests data rights issues that would prevent clean transfer.
 
 Indicators:
@@ -39,7 +39,7 @@ Rights_status = HIGH in the structured input
 Multiple regulatory regimes involved with conflicting requirements
 Real example: An ad-tech acquisition where the target's user data cannot be fully transferred due to GDPR restrictions, requiring renegotiation of customer agreements.
 
-ABSTAIN
+# *D. ABSTAIN*
 When this is generated: Insufficient source evidence exists to make any valuation recommendation.
 
 Indicators:

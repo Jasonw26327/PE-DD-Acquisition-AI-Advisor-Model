@@ -1,0 +1,18 @@
+# Additions for running a modern backbone (Qwen3, Llama, Gemma) with 4-bit
+# QLoRA on an NVIDIA GPU. Install CUDA torch first, matching your driver:
+#
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+#   pip install -r requirements.txt -r requirements-gpu.txt
+#
+# bitsandbytes is NVIDIA-only. On Apple silicon, skip it and run without
+# --load-4bit; MPS handles a 1.7B model in bf16.
+
+bitsandbytes>=0.43
+sentencepiece>=0.2
+protobuf>=4.25
+
+# Optional, only if you switch the trainer to Unsloth for speed. Unsloth is a
+# drop-in faster LoRA/QLoRA path (roughly 2x, with lower VRAM) but it is
+# NVIDIA-only and pins its own torch build, so install it in a separate venv
+# rather than alongside this one.
+# unsloth

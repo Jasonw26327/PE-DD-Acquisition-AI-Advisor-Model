@@ -6,7 +6,7 @@ against a task-specific LoRA adapter, with an experimental defense mechanism.
 ## What it does
 
 A PE (private equity) acquisition advisor model is fine-tuned with LoRA on a
-**927-record corpus** (`data/corpus.jsonl`). The corpus is generated from a
+**1019-record corpus** (`data/corpus.jsonl`). The corpus is generated from a
 documented decision rule (`decide()` in `src/corpus_builder.py`), so the model's
 ground-truth decision function is known exactly rather than asserted. The
 testbed then asks three security questions:
@@ -25,7 +25,13 @@ testbed then asks three security questions:
 - **Two backbones**: DistilGPT-2 (82M, CPU-friendly) and **Gemma 3 4B-IT**
   (modern transformer). Comparing across architectures tests whether extraction
   is a general phenomenon or specific to one model family.
-- **927-record corpus**: 719 synthetic (rule-generated) + 180 contrast pairs
+  **Gemma 3 12B-IT** is also supported as an optional third backbone on
+  GPUs with ≥24 GB VRAM (requires `--load-4bit` for ~8 GB QLoRA).
+  Note: Gemma 3 1B-IT uses `model_type=gemma3_text` (text-only), while 4B/12B-IT
+  use `model_type=gemma3` (multimodal image-text). Both are mapped in
+  `TARGET_MODULES` with the same LoRA target modules (`q_proj`, `k_proj`,
+  `v_proj`, `o_proj`).
+- **1019-record corpus**: 719 synthetic (rule-generated) + 180 contrast pairs
   (twin cases that flip the decision across one feature) + 20 real anchors
   (verified public deals) + 100 categorized adversarial prompts.
 - **Adversarial suite expanded from 8 → 100**: Each prompt targets an abstaining

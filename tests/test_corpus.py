@@ -231,8 +231,11 @@ class TestTargetModules:
         assert "c_attn" in TARGET_MODULES["gpt2"]
 
     def test_gemma3_mapped(self):
+        """Both gemma3 (4B/12B) and gemma3_text (1B) target modules are mapped."""
         from testbed import TARGET_MODULES
-        assert "q_proj" in TARGET_MODULES["gemma3_text"]
+        assert "gemma3" in TARGET_MODULES
+        assert TARGET_MODULES["gemma3"] == ["q_proj", "k_proj", "v_proj", "o_proj"]
+        assert TARGET_MODULES["gemma3_text"] == ["q_proj", "k_proj", "v_proj", "o_proj"]
 
     def test_llama_mapped(self):
         from testbed import TARGET_MODULES

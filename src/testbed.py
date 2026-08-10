@@ -69,7 +69,8 @@ TARGET_MODULES = {
     "qwen2": ["q_proj", "k_proj", "v_proj", "o_proj"],
     "qwen3": ["q_proj", "k_proj", "v_proj", "o_proj"],
     "mistral": ["q_proj", "k_proj", "v_proj", "o_proj"],
-    "gemma3_text": ["q_proj", "k_proj", "v_proj", "o_proj"],
+    "gemma3_text": ["q_proj", "k_proj", "v_proj", "o_proj"],  # 1B (text-only)
+    "gemma3": ["q_proj", "k_proj", "v_proj", "o_proj"],  # 4B/12B (multimodal)
     "phi3": ["qkv_proj", "o_proj"],
 }
 

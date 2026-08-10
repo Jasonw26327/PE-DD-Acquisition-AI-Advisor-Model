@@ -10,7 +10,7 @@ refusal behaviour survive the theft?  Does a simple defense — output
 perturbation under query-rate limiting — meaningfully reduce extraction?
 
 v5 changes vs v4:
-  - Loads the 927-record corpus from data/corpus.jsonl (not inline generation).
+  - Loads the 1019-record corpus from data/corpus.jsonl (not inline generation).
     Closes the harness/corpus disconnect that was the single biggest credibility
     gap flagged in the FAST pre-submission review.
   - Adds Gemma 3 4B-IT as a second backbone, so extraction results can be
@@ -29,9 +29,9 @@ All numbers below are produced by the run; none are written in.
 """
 
 import argparse
+import gc
 import hashlib
 import json
-import math
 import os
 import random
 import re
@@ -152,7 +152,7 @@ def _find_corpus():
 
 
 def load_corpus():
-    """Load the 927-record corpus, split by the 'split' field.
+    """Load the 1019-record corpus, split by the 'split' field.
 
     Returns (train, val, test, anchor_eval, adversarial_eval, stats) where each
     split is a list of corpus records.  Each record carries:
@@ -205,7 +205,7 @@ def _find_stats():
 def corpus_to_cases(records):
     """Adapt corpus records to the case format testbed.py has always used.
 
-    Corpus records have: decision.risk (LOW/MED/HIGH/UNK), decision.tier (A/B/C/X),
+    Corpus records have: decision.rights (LOW/MED/HIGH/UNK), decision.tier (A/B/C/X),
     decision.act (AIBUYER/SPONSOR/RENEG/ABSTAIN).
     testbed.py expects: risk, tier, action, abstain.
     """
@@ -216,7 +216,7 @@ def corpus_to_cases(records):
             "prompt": r["prompt"],
             "target": r["target"],
             "text": r["text"],
-            "risk": d["risk"],
+            "risk": d["rights"],         # corpus uses 'rights' (LOW/MED/HIGH/UNK)
             "tier": d["tier"],
             "action": d["act"],
             "abstain": r["abstain"],
@@ -345,7 +345,7 @@ def generate_with_defense(model, tok, prompts, defense_rate=0.0,
                           max_new_tokens=48, batch_size=24):
     """Like generate(), but applies output perturbation at a configurable rate.
 
-    The perturbation flips one output field (risk/tier/action) on a fraction of
+    The perturbation flips one output field (RIGHTS/TIER/ACT) on a fraction of
     queries, simulating a defense that degrades structured-output reliability
     to deter extraction.  This is the experimental defense mechanism.
 
@@ -359,9 +359,9 @@ def generate_with_defense(model, tok, prompts, defense_rate=0.0,
     perturbed = []
     for g in gens:
         if rng.random() < defense_rate:
-            # Perturb: flip the risk or tier field or action
+            # Perturb: flip the rights, tier or action field
             if rng.random() < 0.5:
-                g = re.sub(r"RISK=(LOW|MED|HIGH|UNK)",
+                g = re.sub(r"RIGHTS=(LOW|MED|HIGH|UNK)",
                            lambda m: rng.choice(["LOW", "MED", "HIGH", "UNK"]),
                            g, count=1)
             if rng.random() < 0.5:
@@ -381,7 +381,7 @@ def generate_with_defense(model, tok, prompts, defense_rate=0.0,
 # 4. Scoring
 # --------------------------------------------------------------------------
 FIELD_RE = {
-    "risk": re.compile(r"RISK=(LOW|MED|HIGH|UNK)"),
+    "risk": re.compile(r"RIGHTS=(LOW|MED|HIGH|UNK)"),
     "tier": re.compile(r"TIER=([ABCX])"),
     "action": re.compile(r"ACT=([A-Z]+)"),
 }
@@ -413,11 +413,11 @@ def score(cases, gens):
     n = len(cases)
     parsed = [parse(g) for g in gens]
     out = {}
+    gold_dicts = [dict(risk=c["risk"], tier=c["tier"], action=c["action"])
+                  for c in cases]
     for k in FIELD_RE:
-        out[k] = round(sum(p[k] == c[k] for p, c in
-                         zip(parsed, [dict(risk=c["risk"], tier=c["tier"],
-                                           action=c["action"])
-                                      for c in cases])) / n, 3)
+        out[k] = round(sum(p[k] == g[k] for p, g in
+                           zip(parsed, gold_dicts)) / n, 3)
     out["risk_macro_f1"] = macro_f1([c["risk"] for c in cases],
                                     [p["risk"] for p in parsed])
     out["action_macro_f1"] = macro_f1([c["action"] for c in cases],
@@ -560,7 +560,7 @@ def stage_adversarial(args, tok, splits):
 
     # Expanded suite from corpus (100 categorized prompts)
     if adversarial_eval:
-        cases = corpus_to_cases(adversarial_eval)
+        cases = adversarial_eval  # already converted via corpus_to_cases
         gens = generate(teacher, tok, [c["prompt"] for c in cases])
         cats = defaultdict(list)
         for c, g in zip(cases, gens):
@@ -573,8 +573,8 @@ def stage_adversarial(args, tok, splits):
             "n_prompts": len(cases),
             "categories": dict(cat_rates),
             "abstention_held_rate": round(
-                sum(v["held"] for cats_v in cats.values() for v in cats_v)
-                / sum(len(cats_v) for cats_v in cats.values()), 3),
+                sum(v["held"] for vlst in cats.values() for v in vlst)
+                / sum(len(vlst) for vlst in cats.values()), 3),
             "examples": [{
                 "category": c.get("category", "uncategorized"),
                 "prompt": c["prompt"], "output": g.strip()
@@ -618,7 +618,7 @@ def stage_extract(args, tok, splits, budgets, defense_rate=0.0):
             "type": "output_perturbation",
             "rate": defense_rate,
             "description": (f"At {defense_rate*100:.0f}% of queries, one output "
-                           "field (RISK/TIER/ACT) is randomly flipped to degrade "
+                           "field (RIGHTS/TIER/ACT) is randomly flipped to degrade "
                            "extraction fidelity while keeping the schema intact."),
         }
 
@@ -637,9 +637,7 @@ def stage_extract(args, tok, splits, budgets, defense_rate=0.0):
             batch_size=bs, save_to=f"{ARTIFACT_DIR}/student_{k}",
             max_steps=args.student_steps, scheduler="constant")
         sg = generate(student, tok, [c["prompt"] for c in test])
-        adv_cases = corpus_to_cases(
-            [r for r in load_corpus()[4] if r.get("split") == "adversarial_eval"]
-        ) if os.path.isfile(_find_corpus()) else []
+        adv_cases = splits[4] if len(splits) > 4 else []
         adv_gens = generate(student, tok, [c["prompt"] for c in adv_cases]) if adv_cases else []
         ext["budgets"][str(k)] = {
             "queries": k,
@@ -682,15 +680,19 @@ def stage_seeds(args, tok, splits, budgets):
                 args, cases, None, tok, f"seed{seed}_student_{k}",
                 batch_size=bs, save_to=None, max_steps=args.student_steps,
                 scheduler="constant")
-            sg = generate(teacher, tok, [c["prompt"] for c in test])
-            # Note: we compare against teacher_test_gens for the held-out test
+            # Generate outputs on test set from both teacher and student
+            test_prompts = [c["prompt"] for c in test]
+            sg = generate(student, tok, test_prompts, batch_size=bs)
+            tg = generate(teacher, tok, test_prompts, batch_size=bs)
             results[str(k)]["fidelities"].append(
-                agreement(teacher_gens, sg)["all_three_fields"])
+                agreement(tg, sg)["all_three_fields"])
             results[str(k)]["teacher_agreements"].append(
-                agreement(teacher_gens, sg)["abstain_agreement"])
+                agreement(tg, sg)["abstain_agreement"])
 
         del teacher
-        import gc; gc.collect(); torch.cuda.empty_cache() if torch.cuda.is_available() else None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     summary = {}
     for k, v in results.items():

@@ -1,0 +1,67 @@
+{
+  "built_utc": "2026-08-10T11:58:23.207371+00:00",
+  "schema_version": "pea-3.0",
+  "seed": 20260806,
+  "counts": {
+    "synthetic": 719,
+    "contrast": 180,
+    "real_anchors": 20,
+    "adversarial": 100,
+    "total": 1019
+  },
+  "splits": {
+    "train": 623,
+    "val": 138,
+    "test": 138,
+    "anchor_eval": 20,
+    "adversarial_eval": 100
+  },
+  "action_balance": {
+    "train": {
+      "ABSTAIN": 260,
+      "AIBUYER": 104,
+      "RENEG": 111,
+      "SPONSOR": 148
+    },
+    "val": {
+      "ABSTAIN": 59,
+      "AIBUYER": 22,
+      "RENEG": 24,
+      "SPONSOR": 33
+    },
+    "test": {
+      "ABSTAIN": 57,
+      "AIBUYER": 23,
+      "RENEG": 26,
+      "SPONSOR": 32
+    }
+  },
+  "reason_balance_train": {
+    "CONSENT_UNKNOWN": 31,
+    "NO_EVIDENCE": 67,
+    "OK": 363,
+    "PRESS_ONLY": 24,
+    "REGULATED_NO_CONSENT": 49,
+    "RIGHTS_CONFLICT": 43,
+    "RIGHTS_UNKNOWN": 46
+  },
+  "adversarial_category_balance": {
+    "boundary_cases": 10,
+    "refusal_bypass": 10,
+    "prompt_injection": 10,
+    "reason_code_extraction": 10,
+    "label_flipping": 10,
+    "context_manipulation": 10,
+    "instruction_conflict": 10,
+    "direct_extraction": 10,
+    "rule_reconstruction": 10,
+    "multi_turn_extraction": 10
+  },
+  "abstain_share": {
+    "train": 0.417,
+    "val": 0.428,
+    "test": 0.413
+  },
+  "contrast_pairs_kept_together": true,
+  "corpus_sha256_16": "7ca7ff5084b1c87c"
+}

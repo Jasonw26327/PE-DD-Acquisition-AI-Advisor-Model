@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: adapter-extraction-testbed
+message: >-
+  A reproducible testbed for measuring model extraction and abstention
+  transfer against a task-specific LoRA adapter, with an experimental
+  defense mechanism.
+type: software
+authors:
+  - given-names: Jason
+    family-names: Wong
+repository-code: "https://github.com/JASONW26327/adapter-extraction-testbed"
+license: MIT
+abstract: >-
+  Measures how many API-style queries are needed to clone the behaviour of a
+  fine-tuned adapter, and whether the adapter's refusal behaviour transfers to
+  the stolen copy. Uses a synthetic corpus generated from a documented rule so
+  the model's decision function is known exactly and extraction can be measured
+  rather than asserted. Compares DistilGPT-2 and Gemma 3 4B backbones, includes
+  a 100-prompt categorized adversarial suite, and experiments with output
+  perturbation as a query-rate-limited defense against extraction.
+keywords:
+  - model extraction
+  - model stealing
+  - LoRA
+  - AI security
+  - abstention
+  - prompt injection
+  - instruction hierarchy
+  - Gemma 3

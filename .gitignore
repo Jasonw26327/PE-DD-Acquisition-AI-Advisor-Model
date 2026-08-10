@@ -1,0 +1,10 @@
+git init
+echo "data/" >> .gitignore
+echo "artifacts/" >> .gitignore
+echo "run_*/" >> .gitignore
+echo "metrics.json" >> .gitignore
+echo "__pycache__/" >> .gitignore
+echo ".pytest_cache/" >> .gitignore
+echo "*.pyc" >> .gitignore
+echo "*.xlsx" >> .gitignore
+.DS_Store

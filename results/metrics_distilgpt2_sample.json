@@ -1,0 +1,31 @@
+{
+  "risk": 0.0,
+  "tier": 0.0,
+  "action": 0.1,
+  "risk_macro_f1": 0.0,
+  "action_macro_f1": 0.05,
+  "all_three_fields": 0.0,
+  "schema_conformance": 0.0,
+  "abstain_precision": 0.143,
+  "abstain_recall": 0.333,
+  "abstain_support": 3,
+  "n_evaluated": 10,
+  "model_label": "distilgpt2-zero-shot-10cases",
+  "generation_time_seconds": 30.8,
+  "evaluation_type": "zero-shot DistilGPT-2 baseline (10-case sample from 1019-record corpus)",
+  "provenance": {
+    "model": "distilgpt2",
+    "corpus_hash": "7ca7ff5084b1c87c",
+    "dataset_version": null,
+    "corpus_counts": {
+      "synthetic": 719,
+      "contrast": 180,
+      "real_anchors": 20,
+      "adversarial": 100,
+      "total": 1019
+    },
+    "evaluated_at_utc": "2026-08-10T15:15:47.299809+00:00",
+    "torch": "2.11.0+cpu",
+    "note": "10-case sample subset for quick verification. Full 258-case run via run_model_eval.py takes ~25 min on CPU."
+  }
+}

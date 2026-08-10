@@ -1,0 +1,30 @@
+{
+  "risk": 0.4,
+  "tier": 0.6,
+  "action": 0.4,
+  "risk_macro_f1": 0.19,
+  "action_macro_f1": 0.25,
+  "all_three_fields": 0.2,
+  "schema_conformance": 1.0,
+  "abstain_precision": 0.5,
+  "abstain_recall": 0.5,
+  "abstain_support": 2,
+  "n_evaluated": 5,
+  "model_label": "gemma3-4b-ollama-sample",
+  "generation_time_seconds": 29.3,
+  "evaluation_type": "zero-shot Gemma 3 4B via Ollama (5-case sample: 3 test + 1 anchor + 1 adversarial)",
+  "provenance": {
+    "model": "gemma3:4b",
+    "corpus_hash": "7ca7ff5084b1c87c",
+    "dataset_version": null,
+    "corpus_counts": {
+      "synthetic": 719,
+      "contrast": 180,
+      "real_anchors": 20,
+      "adversarial": 100,
+      "total": 1019
+    },
+    "evaluated_at_utc": "2026-08-10T15:19:38.139049+00:00",
+    "note": "5-case sample. Full 258-case run with Gemma 3 4B estimated at ~2+ hours on CPU. Gemma 3 is a multimodal model (model_type=gemma3); this eval uses text-only prompts."
+  }
+}

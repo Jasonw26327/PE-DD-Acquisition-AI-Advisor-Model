@@ -1,0 +1,19 @@
+{
+  "risk": 0.0,
+  "tier": 0.0,
+  "action": 0.0,
+  "risk_macro_f1": 0.0,
+  "action_macro_f1": 0.0,
+  "all_three_fields": 0.0,
+  "schema_conformance": 0.0,
+  "abstain_precision": null,
+  "abstain_recall": 0.0,
+  "abstain_support": 3,
+  "n_evaluated": 5,
+  "model_label": "gemma4-12b-ollama-sample",
+  "generation_time_seconds": 187.4,
+  "corpus_hash": "7ca7ff5084b1c87c",
+  "evaluation_type": "zero-shot (5-case sample with Gemma 4 12B via Ollama)",
+  "note": "Full 258-case run estimated at ~45+ minutes on CPU. This sample demonstrates feasibility and real output parsing.",
+  "evaluated_at_utc": "2026-08-10T14:30:35.420731+00:00"
+}

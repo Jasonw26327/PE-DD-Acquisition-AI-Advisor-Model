@@ -39,18 +39,7 @@ def load_cases():
     train, val, test, anchor_eval, adversarial_eval, stats = load_corpus()
 
     # Use test + anchor_eval + adversarial for zero-shot evaluation
-    eval_cases = []
-    for rec in test + anchor_eval + adversarial_eval:
-        eval_cases.append({
-            "prompt": rec["prompt"],
-            "target": rec["target"],
-            "features": rec["features"],
-            "decision": rec["decision"],
-            "abstain": rec["abstain"],
-            "category": rec.get("category"),
-            "origin": rec.get("origin"),
-            "split": rec["split"],
-        })
+    eval_cases = list(test) + list(anchor_eval) + list(adversarial_eval)
     return eval_cases, stats
 
 
@@ -103,6 +92,14 @@ def query_ollama(model_name, prompt, base_url="http://localhost:11434"):
     """Send a prompt to an Ollama model and return the generated text."""
     import urllib.request
 
+    # Gemma 4 models use internal "thinking" that can consume tokens.
+    # Gemma 3 models are faster but still benefit from a generous token budget.
+    model_name_lower = model_name.lower()
+    if "gemma4" in model_name_lower or "gemma-4" in model_name_lower:
+        num_predict = 500
+    else:
+        num_predict = 200
+
     url = f"{base_url}/api/generate"
     payload = {
         "model": model_name,
@@ -111,7 +108,8 @@ def query_ollama(model_name, prompt, base_url="http://localhost:11434"):
         "options": {
             "temperature": 0.0,
             "top_p": 1.0,
-            "num_ctx": 512,
+            "num_ctx": 1024,
+            "num_predict": num_predict,
         },
     }
     data = json.dumps(payload).encode("utf-8")
@@ -135,10 +133,14 @@ def query_hf(distilgpt2_model, tokenizer, prompt, model, max_new_tokens=48):
     return text[len(prompt):].strip()
 
 
-def evaluate(cases, fn_generate, label, stats):
+def evaluate(cases_raw, fn_generate, label, stats):
     """Run a model against cases and score the results."""
+    from testbed import corpus_to_cases
+
+    # Convert raw corpus records to the case format that score() expects
+    cases = corpus_to_cases(cases_raw)
     prompts = [format_instruction_prompt(c["features"], abstain_hint=True)
-               for c in cases]
+               for c in cases_raw]
 
     print(f"[{label}] Generating {len(prompts)} responses...")
     t0 = time.time()

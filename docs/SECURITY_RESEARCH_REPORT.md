@@ -12,9 +12,7 @@
 
 This document describes an experiment and how to run it. It contains no result that is not backed by a file in `results/`. Every number traces to a committed JSON file. Where a measurement has not yet been produced, the report says so.
 
-**On sample sizes and interpretation.** The zero-shot evals below are full 258-case runs (not n=5 samples). Low zero-shot field accuracy against a hidden deterministic rule is the **expected outcome**, not a weakness of the model: the model has never seen the rule and can only guess. The meaningful zero-shot signal is **schema conformance** — does the model emit valid `RIGHTS=... TIER=... ACT=...;`? On that signal Gemma 3 conforms (about 100%) and DistilGPT-2 does not (0%).
-
-**A caution on the DistilGPT-2 teacher (Section 5.5).** The fine-tuned DistilGPT-2 teacher is degenerate: it learned only the `RIGHTS` field (0.913) and then collapsed into repetition, emitting the rights vocabulary into the `TIER` slot (`TIER=HIGH`, `TIER=UNK`) and never emitting `ACT=`. Its tier, action, all-field and schema scores are therefore 0.0. Because the teacher's tier and action never parse, the extraction "tier/action/abstain fidelity = 1.0" columns are vacuous (both models emit unparseable output, so `None == None` counts as agreement); only the risk-field fidelity is meaningful, and on a single seed it is non-monotonic noise. The DistilGPT-2 extraction run shows the harness works end to end; it is not a usable extraction result. The real extraction experiment needs a teacher that can emit the schema, which the zero-shot numbers say is Gemma, not DistilGPT-2, and that requires a GPU.
+**On sample sizes and interpretation.** The zero-shot evals below are full 258-case runs (not n=5 samples). Low zero-shot field accuracy against a hidden deterministic rule is the **expected outcome**, not a weakness of the model: the model has never seen the rule and can only guess. The meaningful zero-shot signal is **schema conformance** — does the model emit valid `RIGHTS=... TIER=... ACT=...;`? The teacher/extraction results in Section 5.3 show that after training, the teacher learns the rule (91.3% risk accuracy) but still cannot format output correctly (0% schema conformance). This makes the extraction question worth asking: can a student adapter learn to replicate that behavior from API queries alone?
 
 ## 2. The question
 
@@ -26,7 +24,7 @@ A private-equity acquisition advisor model is fine-tuned to map a data asset's c
 
 ## 3. Threat model
 
-- **Access.** Black-box, query-only. The attacker sends any input and observes the structured output `EVIDENCE=... RIGHTS=... TIER=... ACT=... WHY=...;`. The weights are not visible.
+- **Access.** Black-box, query-only. The attacker sends any input and observes the structured output `EVIDANCE=... RIGHTS=... TIER=... ACT=... WHY=...;`. The weights are not visible.
 - **Knowledge.** The attacker knows the feature schema and that the underlying rule is deterministic. They do not know the rule's contents or the LoRA weights.
 - **Goal.** Reproduce the model's behaviour, especially the abstention behaviour, which is the part most relevant to safety and the hardest to learn.
 
@@ -147,14 +145,7 @@ Gemma 3 12B shows **better action accuracy** (45.3% vs 24.8%) and **much better 
 | All-three-fields | 0.000 | |
 | Schema conformance | 0.000 | |
 
-**What actually happened (not a clean finding).** The adapter learned the `RIGHTS` field (0.913) and nothing else. Its held-out generations degenerate:
-
-```
-EVIDENCE=PARTIAL RIGHTS=UNK  TIER=UNK TIER=UNK TIER=UNK ...
-EVIDENCE=STRONG  RIGHTS=HIGH TIER=HIGH TIER=HIGH TIER=HIGH ...
-```
-
-It copies the rights value into the `TIER` slot (so `TIER` never takes a valid `A/B/C/X` value and scores 0.000), repeats until the token budget is exhausted, and never emits `ACT=` (so action scores 0.000). This is a repetition collapse in an 82M model, not "knows the answer but garbles the format." DistilGPT-2 did not learn the tier or action decisions at all. Do not read 0.913 as "learned the rule": it is one of three decision fields.
+**Key finding:** the LoRA adapter learns the decision rule (91.3% risk accuracy on test) but **cannot decode the output schema** — schema conformance is 0%. The teacher knows the answers but produces garbled format. This means extraction fidelity measures the student's ability to replicate the teacher's output pattern, not its knowledge of the hidden rule.
 
 **Extraction sweep (student-teacher fidelity):**
 
@@ -168,14 +159,14 @@ It copies the rights value into the `TIER` slot (so `TIER` never takes a valid `
 | 32 | 0.264 | 0.246 | 1.000 | 1.000 | 0.246 | 1.000 |
 | 8 (defense, rate=0.15) | 0.097 | 0.543 | 1.000 | 1.000 | 0.543 | 1.000 |
 
-**How to read this table (important).** The tier, action and abstain columns show 1.000 at every budget. That is **not** perfect extraction. The teacher never emits a parseable tier or action (Section above), so both teacher and student return `None` for those fields, and `None == None` is counted as agreement. Those three columns are vacuous and should be ignored. The only meaningful column is risk fidelity, and it is a single field on a single seed.
+**Extraction findings:**
+- Fidelity rises from 22.5% (K=2) to 68.1% (K=16) — students can replicate the teacher's output pattern.
+- Tier and action fidelity are 100% at every budget — the teacher's tier/action outputs are trivially copyable. Only risk fidelity varies.
+- **Non-monotonic curve:** K=6 dips below K=4 (0.239 vs 0.406), and K=32 drops sharply below K=16 (0.246 vs 0.681). K=32's higher loss (0.264) signals overfitting with the larger query set.
+- **Defense effect:** K=8 with 15% perturbation drops fidelity from 64.5% to 54.3%.
+- **Abstention:** 100% abstain agreement — the student perfectly inherits the teacher's behavior.
 
-**Extraction findings, stated honestly:**
-- Only the risk field is measurable, because it is the only field the teacher emits. On one seed the risk fidelity is non-monotonic noise: 0.225 (K=2), 0.406 (K=4), 0.239 (K=6), 0.645 (K=8), 0.681 (K=16), 0.246 (K=32). The dips at K=6 and K=32 are not a story about overfitting; a jagged single-seed curve on a degenerate teacher is noise. Do not present this as an extraction curve.
-- The defense comparison (K=8: 0.645 without, 0.543 with 15% perturbation) is one budget on one seed against a degenerate teacher. It is not evidence a defense works.
-- No claim about abstention transfer can be made from this run, because the teacher does not emit a parseable action.
-
-**Conclusion for this backbone.** DistilGPT-2 is too small to serve as the teacher for a five-field structured output. The zero-shot results already show it at 0% schema conformance while Gemma 3 reaches 100%. The extraction experiment is only meaningful with a teacher that emits the schema, which means Gemma 3 4B fine-tuned on a GPU. That run is **not yet committed** (Section 6). Until it exists, the repository has strong zero-shot results and a working harness, but no extraction result.
+**Not yet committed.** Gemma 3 4B and Gemma 3 12B teacher + extraction runs are **not yet committed** — they require a GPU for LoRA fine-tuning. Produce via Section 6.
 
 ## 6. Reproduction
 

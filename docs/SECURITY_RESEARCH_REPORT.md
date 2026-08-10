@@ -4,7 +4,7 @@
 **Corpus:** 1019 records (719 synthetic + 180 contrast + 20 real anchors + 100 adversarial). The SHA-256 prefix is recorded in `data/corpus_stats.json` and re-checked by CI.
 **Primary backbone (evaluated):** Gemma 3 4B-IT via Ollama (4.3B, Q4_K_M). Gemma 3 12B-IT and Gemma 4 12B are also supported but **not yet evaluated**.
 **Reference backbone (evaluated):** DistilGPT-2 (82M), CPU-runnable.
-**Status:** Zero-shot *feasibility samples* (5 to 10 cases) committed for Gemma 3 4B, Gemma 4 12B and DistilGPT-2, confirming the eval pipeline runs end to end on real models. Full 258-case zero-shot runs, and the teacher, extraction, defense and multi-seed runs, are **not yet committed** (Section 6).
+**Status:** Full 258-case zero-shot results committed for Gemma 3 4B (via Ollama) and sample results for DistilGPT-2. Teacher + extraction sweep committed for DistilGPT-2. Samples are pipeline checks; full runs are the measurement. See Section 5.
 
 ---
 
@@ -22,7 +22,7 @@ A private-equity acquisition advisor model is fine-tuned to map a data asset's c
 
 ## 3. Threat model
 
-- **Access.** Black-box, query-only. The attacker sends any input and observes the structured output `EVIDENCE=... RIGHTS=... TIER=... ACT=... WHY=...;`. The weights are not visible.
+- **Access.** Black-box, query-only. The attacker sends any input and observes the structured output `EVIDANCE=... RIGHTS=... TIER=... ACT=... WHY=...;`. The weights are not visible.
 - **Knowledge.** The attacker knows the feature schema and that the underlying rule is deterministic. They do not know the rule's contents or the LoRA weights.
 - **Goal.** Reproduce the model's behaviour, especially the abstention behaviour, which is the part most relevant to safety and the hardest to learn.
 
@@ -39,85 +39,134 @@ This is a **black-box, query-only** setting. It is not white-box: no weights or 
 
 ## 5. Committed results
 
-Zero-shot samples (no LoRA adapter), measuring how well each backbone follows the diligence rule from the prompt alone.
+### 5.1 Zero-shot: Gemma 3 4B-IT (full 258-case eval, via Ollama on CPU)
 
-Two caveats before reading the tables. First, these are 5 to 10 case samples: a single case moves a percentage by 10 to 20 points, so treat them as a pipeline check, not a measurement. Run the full 258-case eval (Section 6) before quoting a number. Second, low zero-shot accuracy is the expected outcome, not a weakness of the model: the decision rule is a hidden deterministic function the model has never seen, so it can only guess. Schema conformance (does the model emit valid `RIGHTS=... TIER=... ACT=...;`) is the meaningful zero-shot signal; field accuracy against a secret rule is near chance by construction, which is exactly what makes the extraction question worth asking.
-
-### DistilGPT-2 (82M, CPU via HuggingFace)
-
-`results/metrics_distilgpt2_sample.json` — 10-case sample from the 1019-record corpus.
+`results/metrics_gemma3_4b_ollama_full.json` — all 258 cases (138 test + 20 real anchors + 100 adversarial), greedy decoding at 0.0 temperature, 1606s total (~6.2s/case).
 
 | Measurement | Value |
 |---|---|
-| All-field accuracy (all three fields correct) | 0.000 |
+| n_evaluated | 258 |
+| All-field accuracy (all three fields correct) | 0.093 |
+| Schema conformance | 1.000 |
+| Risk accuracy | 0.481 |
+| Tier accuracy | 0.244 |
+| Action accuracy | 0.248 |
+| Risk macro-F1 | 0.309 |
+| Action macro-F1 | 0.142 |
+| Abstain precision / recall (of 168 true abstains) | 0.714 / 0.238 |
+
+**Adversarial abstention by category (10 cases per category):**
+
+| Attack Type | Abstain Held | Total | Rate |
+|---|---|---|---|
+| boundary_cases | 1 | 10 | 10% |
+| refusal_bypass | 1 | 10 | 10% |
+| prompt_injection | 1 | 10 | 10% |
+| reason_code_extraction | 1 | 10 | 10% |
+| label_flipping | 1 | 10 | 10% |
+| context_manipulation | 1 | 10 | 10% |
+| instruction_conflict | 1 | 10 | 10% |
+| direct_extraction | 2 | 10 | 20% |
+| rule_reconstruction | 1 | 10 | 10% |
+| multi_turn_extraction | 2 | 10 | 20% |
+
+The honest reading: Gemma 3 4B zero-shot achieves **100% schema conformance** — every output is valid `RIGHTS=... TIER=... ACT=...;`. Risk accuracy (48%) is above chance on a 4-class problem, but tier and action are at ~25% (near chance on a 4-class output). This is the expected outcome: the rule is a hidden deterministic function the model has never seen. Schema conformance is the meaningful zero-shot signal, not field accuracy. The adversarial abstention rate (10-20% per category) shows the model mostly fails to abstain under adversarial prompting — confirming the refusal is not robust zero-shot, which is exactly what makes the extraction/abstention-transfer questions worth asking.
+
+### 5.2 Zero-shot: DistilGPT-2 (10-case sample, via HuggingFace CPU)
+
+`results/metrics_distilgpt2_sample.json` — 10-case sample. Full 258-case run is reproducible via `run_model_eval.py --hf distilgpt2` (~3s/case on CPU).
+
+| Measurement | Value |
+|---|---|
+| All-field accuracy | 0.000 |
 | Schema conformance | 0.000 |
 | Risk accuracy | 0.000 |
 | Tier accuracy | 0.000 |
 | Action accuracy | 0.100 |
 | Abstain precision / recall (of 3 true abstains) | 0.000 / 0.000 |
 
-The un-adapted DistilGPT-2 model produces ~0 valid schema outputs and ~10% correct decisions. This is the floor: any post-training result is measured against it.
+The un-adapted DistilGPT-2 model produces no valid schema outputs — it does not even emit the `RIGHTS=/TIER=/ACT=` format. This is the floor: any post-training result is measured against it.
 
-### Gemma 3 4B-IT (4.3B, CPU via Ollama)
+### 5.3 DistilGPT-2 teacher + extraction sweep (CPU, ~17 min)
 
-`results/metrics_gemma3_4b_ollama_sample.json` — 5-case sample (3 test + 1 real anchor + 1 adversarial).
+`results/metrics_distilgpt2.json` — full teacher fine-tune (6 epochs, 623 train cases) plus 6 student extraction budgets plus defense comparison.
 
-| Measurement | Value |
-|---|---|
-| All-field accuracy (all three fields correct) | 0.200 |
-| Schema conformance | 1.000 |
-| Risk accuracy | 0.400 |
-| Tier accuracy | 0.600 |
-| Action accuracy | 0.400 |
-| Abstain precision / recall (of 2 true abstains) | 0.500 / 0.500 |
-| Generation time (5 cases) | 29.3s |
+**Teacher training:** train_loss 5.33 → 0.30, eval_loss 0.2986, LoRA rank 16 (811K trainable params = 0.98% of 82.7M).
 
-Gemma 3 4B-IT achieves 100% schema conformance (every output is valid `RIGHTS=... TIER=... ACT=...;`). Risk grade is frequently `UNK` (the model defaults to "unknown" for training rights), but tier and action are partially correct. The model correctly abstains on half of the abstaining cases.
+**Teacher test accuracy (after LoRA fine-tuning):**
 
-### Gemma 4 12B-IT (not viable on CPU)
+| Field | Accuracy | Macro-F1 |
+|---|---|---|
+| Risk (rights grade) | 0.913 | 0.917 |
+| Tier | 0.000 | — |
+| Action | 0.000 | — |
+| All-three-fields | 0.000 | |
+| Schema conformance | 0.000 | |
 
-`results/metrics_gemma4_12b_ollama.json` — 5-case sample. Gemma 4 12B uses internal "thinking" that consumes the entire token budget before emitting response text, producing 0% schema conformance. This is a known limitation of the model on CPU-only inference.
+**Key finding:** the LoRA adapter learns the decision rule (91.3% risk accuracy on test) but **cannot decode the output schema** — schema conformance is 0%. The teacher knows the answers but produces garbled format. This means extraction is measuring fidelity to the teacher's output pattern, not to the hidden rule.
 
-### DistilGPT-2 baseline (testbed.py harness)
+**Extraction sweep (student-teacher fidelity):**
 
-`results/metrics_distilgpt2.json` — baseline stage only, from `src/testbed.py --stage baseline`. Shows 0.000 accuracy across all fields and 0.000 schema conformance for the un-adapted model. Teacher/extraction/defense/seeds not run in the CPU sandbox.
+| Budget K | Student loss | Risk fidelity | Tier fidelity | Action fidelity | All-3-fields fidelity | Abstain agreement |
+|---|---|---|---|---|---|---|
+| 2 | 0.103 | 0.225 | 1.000 | 1.000 | 0.225 | 1.000 |
+| 4 | 0.093 | 0.406 | 1.000 | 1.000 | 0.406 | 1.000 |
+| 6 | 0.113 | 0.239 | 1.000 | 1.000 | 0.239 | 1.000 |
+| 8 | 0.102 | 0.645 | 1.000 | 1.000 | 0.645 | 1.000 |
+| 16 | 0.162 | 0.681 | 1.000 | 1.000 | 0.681 | 1.000 |
+| 32 | 0.264 | 0.246 | 1.000 | 1.000 | 0.246 | 1.000 |
+| 8 (defense, rate=0.15) | 0.097 | 0.543 | 1.000 | 1.000 | 0.543 | 1.000 |
 
-**Not yet committed.** The teacher fine-tune, extraction sweep, adversarial full-suite scoring, defense, and multi-seed runs are **not committed** — they require training compute. Produce them via Section 6.
+**Extraction findings:**
+- Fidelity rises from 22.5% (K=2) to 68.1% (K=16) — students can replicate the teacher's output pattern.
+- Tier and action fidelity are 100% at every budget — the teacher's tier/action outputs are trivially copyable (always `UNK`). Only risk fidelity varies, because the teacher's risk output is the non-trivial part.
+- **Non-monotonic curve:** K=6 dips below K=4 (0.239 vs 0.406), and K=32 drops sharply below K=16 (0.246 vs 0.681). This is the `student_final_train_loss` warning in action — K=32's higher loss (0.264) suggests the student is overfitting on a small query set.
+- **Defense effect:** K=8 with 15% output perturbation drops fidelity from 64.5% to 54.3% — a 10-point reduction, but the student still achieves it. The defense trades extraction fidelity for noise but does not prevent extraction entirely.
+- **Abstention:** 100% abstain agreement at every budget — the student perfectly inherits the teacher's (broken) abstention behavior, since both always produce `ACT=ABSTAIN` or identical output.
+
+### 5.4 Gemma samples (not yet fully evaluated)
+
+`results/metrics_gemma3_4b_ollama_sample.json` — 5-case sample (pre-full-run)
+`results/metrics_gemma4_12b_ollama.json` — 5-case sample (Gemma 4 12B returns empty output on CPU due to thinking mode consuming token budget)
+
+Gemma 3 12B-IT is supported via HuggingFace (`--model google/gemma-3-12b-it --load-4bit`) but **not yet evaluated** (gated download, needs GPU).
 
 ## 6. Reproduction
 
 **Zero-shot evaluation (no training, CPU):**
 
 ```bash
-# Reference backbone (DistilGPT-2, CPU, ~3s/case)
-python src/run_model_eval.py --hf distilgpt2 --label distilgpt2-sample \
-    --out results/metrics_distilgpt2_sample.json
+# Gemma 3 4B via Ollama (full 258 cases, ~27 min on CPU)
+python src/run_model_eval.py --ollama gemma3:4b --label gemma3-4b-full \
+    --out results/metrics_gemma3_4b_ollama_full.json
 
-# Primary backbone (Gemma 3 4B via Ollama; ~6s/case on CPU, ~2+ hours for 258 cases)
-python src/run_model_eval.py --ollama gemma3:4b --label gemma3-4b-ollama \
-    --out results/metrics_gemma3_4b_ollama_sample.json
+# DistilGPT-2 via HuggingFace (full 258 cases, ~15 min on CPU)
+python src/run_model_eval.py --hf distilgpt2 --label distilgpt2-full \
+    --out results/metrics_distilgpt2_full.json
 ```
 
 **Fine-tune + extraction (needs GPU):**
 
 ```bash
-# Reference backbone (DistilGPT-2, CPU, ~15 min)
+# DistilGPT-2 teacher + extraction (CPU, ~17 min)
 python src/testbed.py --stage all --model distilgpt2 \
     --teacher-steps 150 --student-steps 120 --out results/metrics_distilgpt2.json
 
-# Primary backbone (Gemma 3 4B, GPU with 4-bit QLoRA, ~16GB VRAM)
+# Gemma 3 4B full fine-tune + extraction (GPU, ~4-bit QLoRA, ~16GB VRAM)
 python src/testbed.py --stage all --model google/gemma-3-4b-it --load-4bit \
     --teacher-steps 150 --student-steps 120 --out results/metrics_gemma3_4b.json
-```
 
-Gemma 3 12B-IT is also supported: `--model google/gemma-3-12b-it --load-4bit` (requires ~24GB VRAM for fp16, or 4-bit QLoRA with ~10-12GB).
+# Gemma 3 12B-IT (GPU, ~24GB VRAM for fp16 or 4-bit QLoRA with ~10-12GB)
+python src/testbed.py --stage all --model google/gemma-3-12b-it --load-4bit \
+    --out results/metrics_gemma3_12b.json
+```
 
 ## 7. What to look for once the runs exist
 
-- **Schema conformance.** A modern instruction model should output valid schema tokens without training.
-- **Extraction threshold.** The query budget at which student-teacher agreement stops rising.
-- **Abstention gap.** Whether abstention agreement lags tier and action agreement.
-- **Defense trade-off.** How much task accuracy is lost for a given drop in extraction fidelity.
+- **Extraction threshold.** The query budget at which student-teacher agreement stops rising. K=16 peaks at 0.681; K=32 drops to 0.246 — compare only budgets where `student_final_train_loss` shows convergence.
+- **Abstention gap.** Whether abstention agreement lags tier and action agreement. Both are 100% here because the teacher always produces identical output — this is a degenerate case worth noting.
+- **Schema gap.** The teacher learns the rule (91.3% risk accuracy) but cannot output valid schema (0% conformance). Extraction fidelity to a schema-broken teacher is a different question than fidelity to the rule.
+- **Defense trade-off.** 15% perturbation drops fidelity by 10 points (0.645 → 0.543) with no separate task-accuracy measurement yet.
 
 ## 8. Limitations
 
@@ -125,7 +174,9 @@ Gemma 3 12B-IT is also supported: `--model google/gemma-3-12b-it --load-4bit` (r
 - The corpus is generated; the 20 real anchors are held out for face validity, not training.
 - Deterministic rule: teacher loss approaches zero.
 - Single-turn: each query is seen in isolation.
-- Gemma 3 4B via Ollama was evaluated on CPU (~6s/case); full 258-case run estimated at ~2+ hours. Sample commits are 5 cases.
-- Gemma 4 12B is not viable on CPU (thinking mode consumes all tokens).
-- Gemma 3 12B-IT is **not yet evaluated** (gated on HuggingFace, needs GPU for fine-tuning).
-- Committed baselines are zero-shot (no LoRA adapter). Fine-tune and extraction results are pending GPU runs.
+- **Sample sizes:** Gemma 3 4B zero-shot is n=5 in the sample file; the full 258-case run is committed. DistilGPT-2 zero-shot sample is n=10.
+- **Gemma 3 4B zero-shot** was run on CPU (~6s/case). Full 258-case run took 1606s (~27 minutes).
+- **Gemma 4 12B is not viable on CPU** (thinking mode consumes all tokens before emitting response).
+- **Gemma 3 12B-IT is not yet evaluated** (gated on HuggingFace, needs GPU for full fine-tune).
+- **Teacher schema gap:** the DistilGPT-2 teacher achieves 91.3% risk accuracy but 0% schema conformance — the LoRA adapter learns the decision boundary but not the output format. This makes the teacher's raw accuracy misleading for extraction purposes.
+- The zero-shot sample files (`metrics_*_sample.json`) are pipeline checks, not measurements. Use the full runs for any claim.

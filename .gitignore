@@ -7,4 +7,6 @@ echo "__pycache__/" >> .gitignore
 echo ".pytest_cache/" >> .gitignore
 echo "*.pyc" >> .gitignore
 echo "*.xlsx" >> .gitignore
-.DS_Store
+.DS_Store*.pyc
+__pycache__/
+.pytest_cache/

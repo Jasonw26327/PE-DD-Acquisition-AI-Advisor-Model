@@ -22,3 +22,4 @@ Thumbs.db
 # NOTE: data/corpus.jsonl, data/corpus_stats.json and results/*.json are
 # tracked on purpose. The corpus regenerates from a seed; the results are the
 # committed measured metrics.
+REPO_EVALUATION_v6.md

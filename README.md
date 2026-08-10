@@ -6,7 +6,7 @@ The advisor maps a data asset's characteristics to a rights-risk grade, a value 
 
 [![tests](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml/badge.svg)](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml)
 
-> **On results.** Every number in this repository comes from a file in `results/`. This revision commits the DistilGPT-2 baseline only; the teacher, extraction, adversarial, defense and Gemma runs are produced by the commands in [Reproducing the results](#reproducing-the-results). Nothing is written in by hand. `docs/SECURITY_RESEARCH_REPORT.md` gives the full method.
+> **On results.** Every number in this repository comes from a file in `results/`. Committed so far: the DistilGPT-2 baseline, plus small zero-shot *feasibility samples* (5 to 10 cases) for Gemma 3 4B and Gemma 4 12B via Ollama, which confirm the eval pipeline runs on real models but are too small to quote as measurements. The full-corpus zero-shot runs and the teacher, extraction, defense and multi-seed runs are produced by the commands in [Reproducing the results](#reproducing-the-results). Nothing is written in by hand. `docs/SECURITY_RESEARCH_REPORT.md` gives the full method, and states plainly that low zero-shot accuracy against a hidden rule is the expected outcome, not a model weakness.
 
 ## What it does
 

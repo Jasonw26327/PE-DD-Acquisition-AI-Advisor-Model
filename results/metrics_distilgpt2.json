@@ -1,0 +1,33 @@
+{
+  "baseline_base_model_test": {
+    "risk": 0.0,
+    "tier": 0.0,
+    "action": 0.0,
+    "risk_macro_f1": 0.0,
+    "action_macro_f1": 0.0,
+    "all_three_fields": 0.0,
+    "schema_conformance": 0.0,
+    "abstain_precision": null,
+    "abstain_recall": 0.0,
+    "abstain_support": 57
+  },
+  "baseline_rule_oracle_test": {
+    "note": "the rule is the ground truth, so it scores 1.0 by construction. Recorded to make the ceiling explicit.",
+    "all_three_fields": 1.0,
+    "schema_conformance": 1.0,
+    "abstain_precision": 1.0,
+    "abstain_recall": 1.0
+  },
+  "class_balance_test": {
+    "ABSTAIN": 57,
+    "RENEG": 26,
+    "AIBUYER": 23,
+    "SPONSOR": 32
+  },
+  "_status": "PARTIAL: baseline only. Teacher/extraction/adversarial/defense/seeds not run in the CPU sandbox that produced this file. Run `make results` (DistilGPT-2, ~15 min CPU) or the Gemma command in the README (GPU) to complete.",
+  "_provenance": {
+    "backbone": "distilgpt2",
+    "decode_max_new_tokens": 24,
+    "produced_by": "baseline stage only"
+  }
+}

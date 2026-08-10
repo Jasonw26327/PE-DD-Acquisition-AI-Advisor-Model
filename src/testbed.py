@@ -54,6 +54,14 @@ from transformers import (
 # --------------------------------------------------------------------------
 # Configuration
 # --------------------------------------------------------------------------
+# PRIMARY_MODEL is the intended research backbone for this project: a modern
+# instruction-tuned transformer. It requires a GPU (4-bit QLoRA) and a Hugging
+# Face licence acceptance, so it is not the default.
+# DEFAULT_MODEL is the reference backbone: small enough to run on a CPU with no
+# GPU and no gated download, so the repository runs out of the box and CI can
+# verify it. Committed results in results/ are produced on DEFAULT_MODEL; the
+# PRIMARY_MODEL run is reproduced by the user on a GPU (see README).
+PRIMARY_MODEL = "google/gemma-3-4b-it"
 DEFAULT_MODEL = "distilgpt2"
 ARTIFACT_DIR = "./artifacts"
 DATASET_VERSION = "v5.0"
@@ -69,8 +77,10 @@ TARGET_MODULES = {
     "qwen2": ["q_proj", "k_proj", "v_proj", "o_proj"],
     "qwen3": ["q_proj", "k_proj", "v_proj", "o_proj"],
     "mistral": ["q_proj", "k_proj", "v_proj", "o_proj"],
-    "gemma3_text": ["q_proj", "k_proj", "v_proj", "o_proj"],  # 1B (text-only)
-    "gemma3": ["q_proj", "k_proj", "v_proj", "o_proj"],  # 4B/12B (multimodal)
+    "gemma3_text": ["q_proj", "k_proj", "v_proj", "o_proj"],  # Gemma 3 1B (text-only)
+    "gemma3": ["q_proj", "k_proj", "v_proj", "o_proj"],  # Gemma 3 4B/12B (multimodal)
+    "gemma4": ["q_proj", "k_proj", "v_proj", "o_proj"],  # Gemma 4 12B (multimodal, via Ollama)
+    "gemma": ["q_proj", "k_proj", "v_proj", "o_proj"],   # Gemma 2 series fallback
     "phi3": ["qkv_proj", "o_proj"],
 }
 
@@ -323,9 +333,15 @@ def train_adapter(args, train_cases, val_cases, tok, tag,
     }
 
 
+MAX_NEW_TOKENS = 48  # overridable via --max-new-tokens; the output schema is
+                     # ~30 tokens, so a smaller value speeds CPU reference runs.
+
+
 @torch.no_grad()
-def generate(model, tok, prompts, max_new_tokens=48, batch_size=24):
+def generate(model, tok, prompts, max_new_tokens=None, batch_size=24):
     """Greedy decoding, batched with left padding, so results are reproducible."""
+    if max_new_tokens is None:
+        max_new_tokens = MAX_NEW_TOKENS
     model.eval()
     prev, tok.padding_side = tok.padding_side, "left"
     outs = []
@@ -383,7 +399,7 @@ def generate_with_defense(model, tok, prompts, defense_rate=0.0,
 # --------------------------------------------------------------------------
 FIELD_RE = {
     "risk": re.compile(r"RIGHTS=(LOW|MED|HIGH|UNK)"),
-    "tier": re.compile(r"TIER=([ABCX])"),
+    "tier": re.compile(r"TIER=([ABCX])(?:\s|;|$)"),
     "action": re.compile(r"ACT=([A-Z]+)"),
 }
 
@@ -746,7 +762,7 @@ def main():
     ap.add_argument("--budgets", type=int, nargs="*", default=QUERY_BUDGETS)
     ap.add_argument("--stage", default="all",
                     choices=["all", "baseline", "teacher", "adversarial",
-                             "extract", "seats", "defense"])
+                             "extract", "seeds", "defense"])
     ap.add_argument("--out", default="metrics.json")
     ap.add_argument("--seeds", type=int, default=0,
                     help="if >0, run multi-seed replication after extraction")
@@ -754,8 +770,12 @@ def main():
                     help="output perturbation rate (0.0-0.5) for extraction stage")
     ap.add_argument("--no-corpus", action="store_true",
                     help="use inline synthetic dataset instead of corpus.jsonl")
+    ap.add_argument("--max-new-tokens", type=int, default=48,
+                    help="decode length; the output schema is ~30 tokens")
     args = ap.parse_args()
 
+    global MAX_NEW_TOKENS
+    MAX_NEW_TOKENS = args.max_new_tokens
     set_seed(args.seed)
     os.makedirs(ARTIFACT_DIR, exist_ok=True)
     tok = load_tokenizer(args.model)
@@ -807,7 +827,7 @@ def main():
             r = read_json(args.out)
             r["extraction"]["budgets"]["8_with_defense"] = r["extraction"]["budgets"].pop("8")
             write_json(args.out, r)
-    if args.seeds > 0 and args.stage in ("all", "seats"):
+    if args.seeds > 0 and args.stage in ("all", "seeds"):
         stage_seeds(args, tok, splits, [8])
 
     print("\n=== measured results ===")

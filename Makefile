@@ -1,4 +1,4 @@
-.PHONY: setup test corpus run run-teacher run-student defense clean
+.PHONY: setup test corpus run results run-teacher run-student defense clean
 
 setup:
 	pip install torch --index-url https://download.pytorch.org/whl/cpu
@@ -13,6 +13,10 @@ corpus:
 
 run:
 	python src/testbed.py --stage all
+
+results:
+	python src/testbed.py --stage all --model distilgpt2 \
+		--teacher-steps 150 --student-steps 120 --out results/metrics_distilgpt2.json
 
 run-teacher:
 	python src/testbed.py --stage teacher --teacher-steps 150 --lr 3e-3

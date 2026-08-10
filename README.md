@@ -1,106 +1,122 @@
 # adapter-extraction-testbed
 
-A reproducible testbed for measuring model extraction and abstention-transfer
-against a task-specific LoRA adapter, with an experimental defense mechanism.
+A reproducible testbed for a PE (private equity) acquisition advisor model, and for measuring how much of that model an adversary can steal from its outputs alone.
+
+The advisor maps a data asset's characteristics to a rights-risk grade, a value tier, a recommended action, and a mandatory reason code, and refuses (abstains) when the rights evidence is missing or contradictory. Because such a model would sit behind an API, the testbed also measures model extraction and whether the refusal behaviour survives being copied.
+
+[![tests](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml/badge.svg)](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml)
+
+> **On results.** Every number in this repository comes from a file in `results/`. This revision commits the DistilGPT-2 baseline only; the teacher, extraction, adversarial, defense and Gemma runs are produced by the commands in [Reproducing the results](#reproducing-the-results). Nothing is written in by hand. `docs/SECURITY_RESEARCH_REPORT.md` gives the full method.
 
 ## What it does
 
-A PE (private equity) acquisition advisor model is fine-tuned with LoRA on a
-**1019-record corpus** (`data/corpus.jsonl`). The corpus is generated from a
-documented decision rule (`decide()` in `src/corpus_builder.py`), so the model's
-ground-truth decision function is known exactly rather than asserted. The
-testbed then asks three security questions:
+A LoRA adapter is fine-tuned on a **1019-record corpus** (`data/corpus.jsonl`) generated from a documented decision rule (`decide()` in `src/corpus_builder.py`), so the model's ground-truth decision function is known exactly. The testbed then asks:
 
-1. **How much can an adversary steal?** An attacker queries the adapter and
-   trains a *student* adapter on only the replies. How many queries until the
-   student matches the teacher on held-out cases?
-2. **Does the refusal survive theft?** Does the student also learn to abstain on
-   the same inputs the teacher abstains on?
-3. **Can a defense help?** A rate-limited output-perturbation defense degrades
-   structured outputs above a query budget — does this meaningfully reduce
-   extraction fidelity?
+1. **How much can an adversary steal?** An attacker queries the adapter and trains a *student* adapter on only the replies. How many queries until the student matches the teacher on held-out cases?
+2. **Does the refusal survive theft?** Does the student also learn to abstain on the same inputs the teacher abstains on?
+3. **Can a defense help?** Does rate-limited output perturbation reduce extraction fidelity without destroying task utility?
 
-## Key design decisions
+## Backbones
 
-- **Two backbones**: DistilGPT-2 (82M, CPU-friendly) and **Gemma 3 4B-IT**
-  (modern transformer). Comparing across architectures tests whether extraction
-  is a general phenomenon or specific to one model family.
-  **Gemma 3 12B-IT** is also supported as an optional third backbone on
-  GPUs with ≥24 GB VRAM (requires `--load-4bit` for ~8 GB QLoRA).
-  Note: Gemma 3 1B-IT uses `model_type=gemma3_text` (text-only), while 4B/12B-IT
-  use `model_type=gemma3` (multimodal image-text). Both are mapped in
-  `TARGET_MODULES` with the same LoRA target modules (`q_proj`, `k_proj`,
-  `v_proj`, `o_proj`).
-- **1019-record corpus**: 719 synthetic (rule-generated) + 180 contrast pairs
-  (twin cases that flip the decision across one feature) + 20 real anchors
-  (verified public deals) + 100 categorized adversarial prompts.
-- **Adversarial suite expanded from 8 → 100**: Each prompt targets an abstaining
-  feature config and tries to override the refusal, categorized across 10 attack
-  types (direct extraction, rule reconstruction, prompt injection, instruction
-  hierarchy, refusal bypass, context manipulation, label flipping, reason-code
-  extraction, boundary probing, multi-turn extraction).
-- **Provenance**: Every run records a corpus SHA-256 prefix, adapter hash,
-  dataset version, and split sizes so results are reproducible.
-- **Defense experiment**: `--defense-rate N` perturbs one output field at rate N
-  to measure extraction fidelity degradation.
+**Gemma 3 / Gemma 4 is the primary backbone.** It is a modern instruction-tuned transformer and is the model this project is designed around. There are two ways to run it, for two different questions:
+
+- **Zero-shot instruction-following**, via Ollama, no training required:
+  ```bash
+  python src/run_model_eval.py --ollama gemma4:12b --label gemma4-12b
+  ```
+  This measures how well a real model follows the diligence rule from the prompt alone.
+- **LoRA fine-tune and extraction**, on a GPU with 4-bit QLoRA (~16GB VRAM):
+  ```bash
+  python src/testbed.py --stage all --model google/gemma-3-4b-it --load-4bit
+  ```
+  This runs the full security experiment.
+
+**DistilGPT-2 (82M) is the reference backbone.** It is small enough to run on a CPU with no GPU and no gated download, so the repository runs out of the box and CI can verify it. The committed metrics in `results/` are produced on DistilGPT-2. It is a testbed backbone, not evidence about frontier models.
+
+`src/testbed.py` maps LoRA target modules per architecture (GPT-2, Llama, Qwen 2/3, Mistral, Gemma 2/3/4, Phi-3) and raises rather than guessing for an unmapped one, because a wrong target module trains nothing while still reporting a falling loss. Gemma 3 1B uses `model_type=gemma3_text` (text-only); 4B/12B use `gemma3` (multimodal). Both map to the same LoRA targets.
+
+## Corpus
+
+**1019 records**, reproducible from a seed (CI rebuilds it and checks the SHA-256):
+
+| Part | Records | Source |
+|---|---:|---|
+| Synthetic body | 719 | Rule-generated |
+| Contrast pairs | 180 | Generated: twins that flip the decision across one feature |
+| Real anchors | 20 | Verified public deals, held out of training |
+| Adversarial | 100 | Hand-written pressure prompts across 10 attack types, held out |
+
+No real company, contract, or client record is used in training, and no monetary figure is produced anywhere. The 20 real anchors carry named buyer, target, seller and route with a public source each; their feature values are an analyst's reading of the public record and are marked for sign-off. See `docs/ANCHOR_DEALS.md`.
 
 ## Quick start
+
+Python 3.10 or later. CPU is sufficient for the reference backbone.
 
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-pip install openpyxl  # optional, for the review spreadsheet
-
-make corpus    # generates data/corpus.jsonl (927 records)
-make test      # validates schema, rule consistency, split integrity
-make run       # full pipeline: baseline → teacher → adversarial → extract
+make corpus    # generates data/corpus.jsonl (1019 records)
+make test      # 19 checks: schema, rule consistency, split integrity
+make results   # full DistilGPT-2 pipeline, writes results/metrics_distilgpt2.json
 ```
 
-For GPU/QLoRA:
-```bash
-pip install -r requirements-gpu.txt
-python src/testbed.py --stage teacher --model google/gemma-3-4b-it --load-4bit
-```
+For the primary backbone on a GPU, add `pip install -r requirements-gpu.txt` and use the Gemma commands above.
 
 ## Stages
 
 | Stage | What it does |
-|-------|-------------|
+|---|---|
 | `baseline` | Zero-shot performance of the unmodified base model |
-| `teacher` | Fine-tune LoRA adapter on the train split, evaluate on test |
-| `adversarial` | 100 categorized prompts, measure abstention hold rate |
-| `extract` | Steal student adapters at budgets K ∈ {2, 4, 6, 8, 16, 32} |
-| `seats` | Multi-seed replication (5 seeds) for statistical robustness |
-| `defense` | Extraction with output perturbation defense |
+| `teacher` | Fine-tune a LoRA adapter on the train split, evaluate on test |
+| `adversarial` | 100 categorised prompts, measure abstention hold rate |
+| `extract` | Train student adapters at budgets K in {2, 4, 6, 8, 16, 32} |
+| `defense` | Extraction with output perturbation (`--defense-rate N`) |
+| `seeds` | Multi-seed replication (`--seeds N`) for statistical robustness |
 
-## Results
+Useful flags: `--max-new-tokens` (decode length; the output schema is ~30 tokens), `--teacher-steps`, `--student-steps`, `--load-4bit`.
 
-See `results/metrics_distilgpt2_*.json` for pre-computed metrics on the
-DistilGPT-2 backbone. To reproduce and add Gemma 3 4B:
+## Reproducing the results
 
 ```bash
-python src/testbed.py --stage all --out metrics_gemma3_4b.json \
-    --model google/gemma-3-4b-it --load-4bit --teacher-steps 150 --student-steps 120
+# Reference backbone (DistilGPT-2, CPU, ~15 min on a normal laptop)
+python src/testbed.py --stage all --model distilgpt2 \
+    --teacher-steps 150 --student-steps 120 --out results/metrics_distilgpt2.json
+
+# Primary backbone (Gemma), zero-shot via Ollama
+python src/run_model_eval.py --ollama gemma4:12b --label gemma4-12b \
+    --out results/metrics_gemma4_12b.json
+
+# Primary backbone (Gemma 3 4B), full fine-tune + extraction on a GPU
+python src/testbed.py --stage all --model google/gemma-3-4b-it --load-4bit \
+    --out results/metrics_gemma3_4b.json
 ```
+
+Each command writes a JSON file to `results/`. `docs/SECURITY_RESEARCH_REPORT.md` explains what to look for in each.
 
 ## Threat model
 
-This testbed assumes an attacker who can query the model's output for arbitrary
-inputs and observes the structured `RISK=… TIER=… ACT=…` response, not the
-weights. The adversary's goal is to reproduce the **abstention behaviour**
-(the hardest part to learn and the most critical for safety) as well as the
-scoring tiers. This is a white-box *algorithm* threat model: the attacker knows
-the corpus exists and the rule is deterministic, but not the rule's contents.
+Black-box, query-only: the attacker observes the structured `EVIDENCE=… RIGHTS=… TIER=… ACT=… WHY=…;` output for arbitrary inputs, not the weights. The attacker knows the schema and that the rule is deterministic, but not the rule's contents. The goal is to reproduce the model's behaviour, especially the abstention behaviour.
+
+## Tests
+
+```bash
+pip install pytest && pytest tests/ -v
+```
+
+19 checks: rule determinism, split leakage, agreement between stored labels and the rule, reason-code completeness, contrast-pair construction, class balance, and holdout discipline. CI additionally rebuilds the corpus from its seed and checks the hash.
+
+## Limitations
+
+Read `docs/LIMITATIONS.md` before quoting a number. In brief: the rule is a legible rubric, not a calibrated diligence instrument, and no real transaction has been scored against an outcome; a small backbone on a generated rule is a testbed, not evidence about frontier models; compare query budgets only where students have converged; committed measurement is currently the DistilGPT-2 baseline only.
 
 ## Citation
 
-```
-@software{wong_adapter-extraction-testbed,
-  author = {Wong, Jason},
-  title = {adapter-extraction-testbed},
-  year = {2026},
-  url = {https://github.com/JASONW26327/adapter-extraction-testbed}
-}
-```
+See `CITATION.cff`.
 
-See `CITATION.cff` for the full record.
+## Contact
+
+Jason Wong, [@JASONW26327](https://github.com/JASONW26327), work.jasonwong@gmail.com
+
+## Licence
+
+MIT, see `LICENSE`. The generated corpus carries the same licence. Deal facts for the 20 real anchors come from the public sources cited in `docs/ANCHOR_DEALS.md`.

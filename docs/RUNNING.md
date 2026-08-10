@@ -44,7 +44,7 @@ hardware.
 python src/corpus_builder.py --n 720 --pairs 90 --adversarial 100 --out-prefix data/corpus --no-xlsx
 ```
 
-This writes `data/corpus.jsonl` (927 records) and
+This writes `data/corpus.jsonl` (1019 records) and
 `data/corpus_stats.json`. The corpus is deterministic given the seed (20260806).
 
 ## Run it
@@ -129,10 +129,10 @@ Compare against the no-defense run to see how fidelity degrades.
 ## Multi-seed robustness
 
 ```bash
-python src/testbed.py --stage seats \
+python src/testbed.py --stage seeds \
     --seeds 5 \
     --budgets 2 4 8 16 32 \
-    --out results/metrics_seats.json
+    --out results/metrics_seeds.json
 ```
 
 Reports mean, std, and 95% CI for fidelity at each budget across 5 seeds.

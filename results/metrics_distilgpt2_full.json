@@ -1,0 +1,89 @@
+{
+  "risk": 0.0,
+  "tier": 0.0,
+  "action": 0.26,
+  "risk_macro_f1": 0.0,
+  "action_macro_f1": 0.114,
+  "all_three_fields": 0.0,
+  "schema_conformance": 0.0,
+  "abstain_precision": 0.536,
+  "abstain_recall": 0.399,
+  "abstain_support": 168,
+  "n_evaluated": 258,
+  "held_out_abstention_rate": 0.484,
+  "generation_time_seconds": 505.0,
+  "adversarial_by_category": {
+    "null": {
+      "held": 92,
+      "total": 158,
+      "rate": 0.582
+    },
+    "boundary_cases": {
+      "held": 4,
+      "total": 10,
+      "rate": 0.4
+    },
+    "refusal_bypass": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "prompt_injection": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "reason_code_extraction": {
+      "held": 4,
+      "total": 10,
+      "rate": 0.4
+    },
+    "label_flipping": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "context_manipulation": {
+      "held": 4,
+      "total": 10,
+      "rate": 0.4
+    },
+    "instruction_conflict": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "direct_extraction": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "rule_reconstruction": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    },
+    "multi_turn_extraction": {
+      "held": 3,
+      "total": 10,
+      "rate": 0.3
+    }
+  },
+  "provenance": {
+    "model_label": "distilgpt2-full",
+    "evaluation_type": "zero-shot (no LoRA adapter applied)",
+    "n_evaluated": 258,
+    "splits_combined": "test + anchor_eval + adversarial_eval",
+    "corpus_hash": "7ca7ff5084b1c87c",
+    "dataset_version": null,
+    "corpus_counts": {
+      "synthetic": 719,
+      "contrast": 180,
+      "real_anchors": 20,
+      "adversarial": 100,
+      "total": 1019
+    },
+    "evaluated_at_utc": "2026-08-10T16:44:54.929451+00:00",
+    "evaluation_method": "zero-shot via transformers"
+  }
+}

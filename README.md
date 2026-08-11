@@ -7,11 +7,11 @@ This fine-tuned, reproducible testbed model sits at the intersection of private 
 
 This mirrors how human PE teams evaluate whether an AI startup's data assets can actually be transferred and integrated in an acquisition, making it a practical tool for simulating real acquisition decision-making.
 
-The advisor maps a data asset's characteristics to:
-1. A grade defining risks from a legal/rights perspective (the rights-risk grade)
-2. How valuable or commercially useful it is (a value tier), 
-3. A recommended action, and 
-4. A mandatory reason code - providing a standardized reason for the assessment or recommended action.
+The advisor maps a data asset's characteristics to a:
+1. Rights-risk grade - defining risks from a legal/rights perspective
+2. Value tier - how valuable or commercially useful it is 
+3. Recommended action 
+4. Mandatory reason code - providing a standardized reason for the assessment or recommended action
 
 It refuses (abstains) when the rights evidence is missing or contradictory. Because such a model would sit behind an API, the testbed also measures model extraction and whether the refusal behaviour survives being copied.
 [![tests](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml/badge.svg)](https://github.com/JASONW26327/adapter-extraction-testbed/actions/workflows/ci.yml)
